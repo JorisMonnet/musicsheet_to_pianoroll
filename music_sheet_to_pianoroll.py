@@ -14,14 +14,19 @@ FloatOrFraction = Union[float, Fraction]
 
 
 def save_piano_roll_fig(piano_roll: list[tuple[int, FloatOrFraction, FloatOrFraction]], path: str = './piano_rolls/',
-                        output_path: str = "."):
+                        output_path: str = ".", show_legend: bool = False):
     """
     Save a piano roll figure.
     :param piano_roll: A list of tuple containing the pitch, start time and end time of the notes.
     :param path: The path to the input file.
     :param output_path: The path to the folder where the file should be saved.
+    :param show_legend: Whether to show the legend or not.
     :return: None
     """
+    min_pitch = min([n[0] for n in piano_roll])
+    max_pitch = max([n[0] for n in piano_roll])
+    min_y = min_pitch - (min_pitch % 12)
+    max_y = max_pitch + 13 - (max_pitch % 12)
     plt.clf()
     fig = plt.Figure(layout='constrained', figsize=(14, 5))
     ax = fig.subplots()
@@ -39,21 +44,22 @@ def save_piano_roll_fig(piano_roll: list[tuple[int, FloatOrFraction, FloatOrFrac
         ax.set_xlim(0, piano_roll[-1][2] + 0.1)
     else:
         ax.set_xlim(0, 1)
-    ax.set_ylim(20, 109)  # Could be setup to only the used octaves
+    ax.set_ylim(min_y, max_y)  # Could be setup to only the used octaves
     ax.set_title(f'Piano roll for {path}')
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('Pitch')
     ax.grid(True)
-    ax.set_yticks([i for i in range(24, 109, 12)])
-    ax.set_yticklabels([f'C{i // 12 - 1}-({i})' for i in range(24, 109, 12)])
+    ax.set_yticks([i for i in range(min_y, max_y, 12)])
+    ax.set_yticklabels([f'C{i // 12 - 1}-({i})' for i in range(min_y, max_y, 12)])
 
     # Legend
-    legend = dict(sorted(legend.items(), key=lambda item: PITCH_CLASSES.index(item[0])))
-    colors_to_print = list(legend.values())
-    pitch_classes_to_print = list(legend.keys())
-    handles = [plt.Line2D([0], [0], color=colors_to_print[i], label=pitch_classes_to_print[i]) for i in
-               range(len(colors_to_print))]
-    fig.legend(handles=handles, loc='outside right')
+    if show_legend:
+        legend = dict(sorted(legend.items(), key=lambda item: PITCH_CLASSES.index(item[0])))
+        colors_to_print = list(legend.values())
+        pitch_classes_to_print = list(legend.keys())
+        handles = [plt.Line2D([0], [0], color=colors_to_print[i], label=pitch_classes_to_print[i]) for i in
+                   range(len(colors_to_print))]
+        fig.legend(handles=handles, loc='outside right')
     try:
         fig.savefig(f'{output_path}/piano_rolls/{path}.png')
     except FileNotFoundError:
