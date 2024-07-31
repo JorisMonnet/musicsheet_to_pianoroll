@@ -99,7 +99,6 @@ if __name__ == "__main__":
 
     # Convert the music sheet to a piano roll
     piano_roll_tuples = music21_stream_to_piano_roll(music_sheet)
-    # piano_roll_tuples.sort(key=lambda n: n[2], reverse=False)
-    # print(piano_roll_tuples)
+
     # Save the piano roll figure
     save_piano_roll_fig(piano_roll_tuples, music_sheet_path)
