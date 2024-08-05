@@ -1,26 +1,32 @@
 import argparse
+from collections import Counter
 from fractions import Fraction
 from typing import Union
 
+import seaborn as sns
 import matplotlib.pyplot as plt
 import music21
 from music21 import note, chord, stream
 
-GRAPH_COLORS = ['red', 'green', 'blue', 'yellow', 'purple', 'orange', 'cyan', 'magenta',
-                'lime', 'pink', 'teal', 'lavender']
+GRAPH_COLORS = sns.color_palette("Paired")
+
+# GRAPH_COLORS = ['red', 'green', 'blue', 'yellow', 'purple', 'orange', 'cyan', 'magenta',
+#                 'lime', 'pink', 'teal', 'lavender']
+
 PITCH_CLASSES = ['C', 'C#/Db', 'D', 'D#/Eb', 'E', 'F', 'F#/Gb', 'G', 'G#/Ab', 'A', 'A#/Bb', 'B']
 
 FloatOrFraction = Union[float, Fraction]
 
 
 def save_piano_roll_fig(piano_roll: list[tuple[int, FloatOrFraction, FloatOrFraction]], path: str = './piano_rolls/',
-                        output_path: str = ".", show_legend: bool = False):
+                        output_path: str = ".", show_legend: bool = False, scale_factor: int = 50):
     """
     Save a piano roll figure.
     :param piano_roll: A list of tuple containing the pitch, start time and end time of the notes.
     :param path: The path to the input file.
     :param output_path: The path to the folder where the file should be saved.
     :param show_legend: Whether to show the legend or not.
+    :param scale_factor: Factor to scale the pitch values to increase vertical spacing.
     :return: None
     """
     min_pitch = min([n[0] for n in piano_roll])
@@ -28,7 +34,7 @@ def save_piano_roll_fig(piano_roll: list[tuple[int, FloatOrFraction, FloatOrFrac
     min_y = min_pitch - (min_pitch % 12)
     max_y = max_pitch + 13 - (max_pitch % 12)
     plt.clf()
-    fig = plt.Figure(layout='constrained', figsize=(14, 5))
+    fig = plt.Figure(layout='constrained', figsize=(15, 8))
     ax = fig.subplots()
     legend = {}
 
@@ -36,20 +42,21 @@ def save_piano_roll_fig(piano_roll: list[tuple[int, FloatOrFraction, FloatOrFrac
 
     for pitch, start, end in piano_roll:
         pc = pitch % 12
-        ax.plot([start, end], [pitch, pitch],
-                color=GRAPH_COLORS[pc])
+        scaled_pitch = pitch * scale_factor  # Scale the pitch values
+        ax.plot([start, end], [scaled_pitch, scaled_pitch],
+                color=GRAPH_COLORS[pc], linewidth=3)
         legend[PITCH_CLASSES[pc]] = GRAPH_COLORS[pc]
 
     if len(piano_roll) > 0:
         ax.set_xlim(0, piano_roll[-1][2] + 0.1)
     else:
         ax.set_xlim(0, 1)
-    ax.set_ylim(min_y, max_y)  # Could be setup to only the used octaves
+    ax.set_ylim(min_y * scale_factor, max_y * scale_factor)  # Scale the y-axis limits
     ax.set_title(f'Piano roll for {path}')
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('Pitch')
     ax.grid(True)
-    ax.set_yticks([i for i in range(min_y, max_y, 12)])
+    ax.set_yticks([i * scale_factor for i in range(min_y, max_y, 12)])
     ax.set_yticklabels([f'C{i // 12 - 1}-({i})' for i in range(min_y, max_y, 12)])
 
     # Legend
@@ -63,12 +70,14 @@ def save_piano_roll_fig(piano_roll: list[tuple[int, FloatOrFraction, FloatOrFrac
     try:
         fig.savefig(f'{output_path}/piano_rolls/{path}.png')
     except FileNotFoundError:
-        # If the directory does not exist, the figure is not saved (but the program should not crash).
-        print('The directory does not exist for saving the piano roll figure.')
+        # Create folder
+        import os
+        os.makedirs(f'{output_path}/piano_rolls/', exist_ok=True)
+        fig.savefig(f'{output_path}/piano_rolls/{path}.png')
     plt.close(fig)
 
 
-def music21_stream_to_piano_roll(music_stream: stream.Stream) -> list[tuple[int, float, float]]:
+def music21_stream_to_piano_roll(music_stream: stream.Stream, offset_ratio) -> list[tuple[int, float, float]]:
     """
     Convert a music21 stream to a piano roll representation.
 
@@ -81,11 +90,11 @@ def music21_stream_to_piano_roll(music_stream: stream.Stream) -> list[tuple[int,
 
     for element in flat_stream.notes:
         if isinstance(element, note.Note):
-            absolute_start = element.getOffsetBySite(flat_stream)
+            absolute_start = flat_stream.elementOffset(element)
             absolute_end = absolute_start + element.quarterLength
             notes.append((element.pitch.midi, absolute_start, absolute_end))
         elif isinstance(element, chord.Chord):
-            absolute_start = element.getOffsetBySite(flat_stream)
+            absolute_start = flat_stream.elementOffset(element)
             absolute_end = absolute_start + element.quarterLength
             for pitch in element.pitches:
                 notes.append((pitch.midi, absolute_start, absolute_end))
